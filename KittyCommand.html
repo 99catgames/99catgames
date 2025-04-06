@@ -28,7 +28,7 @@
       position: relative;
       width: 360px;
       height: 640px;
-      background-color: #00008B; /* Dark blue background */
+      background-color: #00008B;
       overflow: hidden;
       border-radius: 10px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
@@ -143,6 +143,20 @@
       font-family: 'Press Start 2P', cursive;
     }
     
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-size: 12px;
+      text-shadow: 1px 1px 2px black;
+      z-index: 10;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 8px 12px;
+      border-radius: 5px;
+      letter-spacing: -1px;
+    }
+    
     #city {
       position: absolute;
       bottom: 0;
@@ -156,7 +170,7 @@
       width: 30px;
       height: 60px;
       background-color: #8B4513;
-      position: absolute; /* changed from relative */
+      position: absolute;
       bottom: 0;
       border-radius: 4px 4px 0 0;
       transition: opacity 0.5s ease;
@@ -182,20 +196,6 @@
       border-radius: 50%;
       bottom: 25px;
       right: 5px;
-    }
-    
-    #hud {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-size: 12px;
-      text-shadow: 1px 1px 2px black;
-      z-index: 10;
-      background-color: rgba(0, 0, 0, 0.5);
-      padding: 8px 12px;
-      border-radius: 5px;
-      letter-spacing: -1px;
     }
     
     .entity {
@@ -243,7 +243,6 @@
       100% { opacity: 0; }
     }
     
-    /* Updated paw styling with animation */
     #paw {
       position: absolute;
       width: 80px;
@@ -335,7 +334,7 @@
     
     <div id="game-over-screen">
       <h2>Game Over!</h2>
-      <p>The mice and rats have eaten too much of your human's food!</p>
+      <p>The mice and rats have eaten too much of your human's food'!</p>
       <button id="restart-button">Start Over</button>
     </div>
     
@@ -371,6 +370,77 @@
   </div>
 
   <script>
+    // Audio functions using the Web Audio API
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function resumeAudioCtx() {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    
+    function playSwipeSound() {
+      resumeAudioCtx();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    }
+    
+       
+    // New: Angry Cat "Meow!" sound option
+    function playAngryCatSound() {
+      resumeAudioCtx();
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      const now = audioCtx.currentTime;
+      osc.frequency.setValueAtTime(600, now);
+      osc.frequency.linearRampToValueAtTime(300, now + 0.1);
+      osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+      
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0.3, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
+    }
+    
+    // Updated playStrikeSound: now randomly picks one of four options
+    function playStrikeSound() {
+        const rand = Math.random();
+        if (rand < 0.5) playSwipeSound();
+    else playAngryCatSound();
+    }
+    
+    // Celebratory three-tone trumpet for level complete
+    function playCelebratoryTrumpet() {
+      resumeAudioCtx();
+      const noteDuration = 0.12;
+      const now = audioCtx.currentTime;
+      const frequencies = [523, 523, 659];
+      frequencies.forEach((freq, index) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'square';
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0.3, now + index * noteDuration);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + (index + 1) * noteDuration);
+        osc.frequency.setValueAtTime(freq, now + index * noteDuration);
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start(now + index * noteDuration);
+        osc.stop(now + (index + 1) * noteDuration);
+      });
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
       // Game elements
       const gameContainer = document.getElementById('game-container');
@@ -397,7 +467,7 @@
       let entities = [];
       let buildings = [];
       let lastSpawnTime = 0;
-      let spawnInterval = 1500; // milliseconds
+      let spawnInterval = 1500;
       let animationId;
       
       // Create city (cracker cityscape)
@@ -405,18 +475,16 @@
         city.innerHTML = '';
         buildings = [];
         const buildingCount = Math.floor(gameContainer.offsetWidth / 40);
-        
         for (let i = 0; i < buildingCount; i++) {
           const building = document.createElement('div');
           building.className = 'building';
           building.style.height = `${40 + Math.random() * 40}px`;
-          building.style.left = `${i * 40}px`; // this explicitly positions each building
+          building.style.left = `${i * 40}px`;
           building.dataset.index = i;
           city.appendChild(building);
-          
           buildings.push({
             element: building,
-            x: i * 40 + 15, // Center of building
+            x: i * 40 + 15,
             eaten: false
           });
         }
@@ -426,56 +494,39 @@
       function init() {
         createCity();
         createInitialEnemies();
-        
         startButton.addEventListener('click', startGame);
         restartButton.addEventListener('click', restartGame);
         continueButton.addEventListener('click', nextLevel);
-        
         gameContainer.addEventListener('click', handleClick);
         gameContainer.addEventListener('touchstart', handleTouch, { passive: false });
       }
       
       // Create initial static enemies
       function createInitialEnemies() {
-        // Clear any existing entities
         entities.forEach(entity => {
           if (gameContainer.contains(entity.element)) {
             gameContainer.removeChild(entity.element);
           }
         });
         entities = [];
-        
-        // Create some random static enemies
-        const enemyCount = 3 + Math.floor(Math.random() * 4); // 3-6 enemies
-        
+        const enemyCount = 3 + Math.floor(Math.random() * 4);
         for (let i = 0; i < enemyCount; i++) {
           const entityType = Math.random() < 0.5 ? 'mouse' : 'rat';
-          
           const entity = document.createElement('div');
           entity.className = `entity ${entityType}`;
-          
-          if (entityType === 'mouse') {
-            entity.textContent = '🐁'; // Updated mouse emoji
-          } else {
-            entity.textContent = '🐀';
-          }
-          
-          // Random position (but not too close to bottom)
+          entity.textContent = entityType === 'mouse' ? '🐁' : '🐀';
           const xPos = Math.random() * (gameContainer.offsetWidth - 50) + 25;
           const yPos = Math.random() * (gameContainer.offsetHeight - 150);
-          
           entity.style.left = `${xPos}px`;
           entity.style.top = `${yPos}px`;
-          
           const entityData = {
             element: entity,
             x: xPos,
             y: yPos,
-            dx: 0, // Static
-            dy: 0, // Static
+            dx: 0,
+            dy: 0,
             type: entityType
           };
-          
           entities.push(entityData);
           gameContainer.appendChild(entity);
         }
@@ -488,8 +539,6 @@
         level = 1;
         destroyedCount = 0;
         escapedCount = 0;
-        
-        // Clear static enemies and create city
         entities.forEach(entity => {
           if (gameContainer.contains(entity.element)) {
             gameContainer.removeChild(entity.element);
@@ -497,7 +546,6 @@
         });
         entities = [];
         createCity();
-        
         updateHUD();
         gameLoop();
       }
@@ -505,14 +553,10 @@
       // Restart the game
       function restartGame() {
         gameOverScreen.style.display = 'none';
-        
-        // Reset game state
         gameActive = true;
         level = 1;
         destroyedCount = 0;
         escapedCount = 0;
-        
-        // Clear all entities and reset city
         entities.forEach(entity => {
           if (gameContainer.contains(entity.element)) {
             gameContainer.removeChild(entity.element);
@@ -520,38 +564,24 @@
         });
         entities = [];
         createCity();
-        
-        // Update HUD
         updateHUD();
-        
-        // Start game loop
         gameLoop();
       }
       
       // Next level
       function nextLevel() {
         levelUpScreen.style.display = 'none';
-        
-        // Update game state
         level++;
         destroyedCount = 0;
-        escapedCount = 0; // Reset escaped count
-        
-        // Clear all entities but keep existing city state
+        escapedCount = 0;
         entities.forEach(entity => {
           if (gameContainer.contains(entity.element)) {
             gameContainer.removeChild(entity.element);
           }
         });
         entities = [];
-        
-        // Regenerate full city for new level
         createCity();
-
-        // Update HUD
         updateHUD();
-        
-        // Continue game loop
         gameActive = true;
         gameLoop();
       }
@@ -567,7 +597,6 @@
       function findNearestBuilding(x) {
         let nearest = null;
         let minDistance = Infinity;
-        
         for (let i = 0; i < buildings.length; i++) {
           if (!buildings[i].eaten) {
             const distance = Math.abs(buildings[i].x - x);
@@ -577,37 +606,28 @@
             }
           }
         }
-        
         return nearest;
       }
       
       // Spawn entities
       function spawnEntity() {
         const now = Date.now();
-        
         if (now - lastSpawnTime > spawnInterval) {
           const entityType = Math.random() < 0.2 ? 'laser' : (Math.random() < 0.5 ? 'mouse' : 'rat');
-          
           const entity = document.createElement('div');
           entity.className = `entity ${entityType}`;
-          
           if (entityType === 'mouse') {
-            entity.textContent = '🐁'; // Updated mouse emoji
+            entity.textContent = '🐁';
           } else if (entityType === 'rat') {
             entity.textContent = '🐀';
           } else {
             entity.className = 'entity laser';
           }
-          
-          // Position at top with random horizontal position
           const xPos = Math.random() * (gameContainer.offsetWidth - 50) + 25;
           entity.style.left = `${xPos}px`;
           entity.style.top = '0px';
-          
-          // Set random angle (direction)
           const angle = (Math.random() * 60 - 30) * (Math.PI / 180);
           const speed = baseSpeed * (level * 0.15 + 0.85) * (entityType === 'rat' ? 2 : 1);
-          
           const entityData = {
             element: entity,
             x: xPos,
@@ -618,10 +638,8 @@
             reachedBottom: false,
             targetBuilding: null
           };
-          
           entities.push(entityData);
           gameContainer.appendChild(entity);
-          
           lastSpawnTime = now;
         }
       }
@@ -630,91 +648,59 @@
       function moveEntities() {
         for (let i = entities.length - 1; i >= 0; i--) {
           const entity = entities[i];
-          
-          // If entity has reached bottom and is heading to a building
           if (entity.reachedBottom && entity.targetBuilding) {
-            // Move entity to the target building
             const targetX = entity.targetBuilding.x;
             const targetY = gameContainer.offsetHeight - 80;
-            
-            // Simple linear movement to target
             const dx = (targetX - entity.x) * 0.1;
             const dy = (targetY - entity.y) * 0.1;
-            
             entity.x += dx;
             entity.y += dy;
-            
-            // Check if entity has reached building
             if (Math.abs(entity.x - targetX) < 5 && Math.abs(entity.y - targetY) < 5) {
-              // Create "eating" animation
+              playCrunchSound();
               const eatingEntity = document.createElement('div');
               eatingEntity.className = 'entity eating';
               eatingEntity.textContent = entity.element.textContent;
               eatingEntity.style.left = `${entity.x}px`;
               eatingEntity.style.bottom = '60px';
               gameContainer.appendChild(eatingEntity);
-              
-              // Make building disappear
               entity.targetBuilding.eaten = true;
               entity.targetBuilding.element.style.opacity = '0';
-              
-              // Remove after animation
               setTimeout(() => {
                 if (gameContainer.contains(eatingEntity)) {
                   gameContainer.removeChild(eatingEntity);
                 }
               }, 3000);
-              
-              // Remove entity
               gameContainer.removeChild(entity.element);
               entities.splice(i, 1);
             }
           } else {
-            // Normal movement
             entity.x += entity.dx;
             entity.y += entity.dy;
-            
-            // Bounce off walls
             if (entity.x < 0 || entity.x > gameContainer.offsetWidth) {
               entity.dx = -entity.dx;
-              entity.x += entity.dx; // prevent sticking to wall
+              entity.x += entity.dx;
             }
-            
-            // Check if entity reached bottom
             if (entity.y > gameContainer.offsetHeight - 100 && !entity.reachedBottom && (entity.type === 'mouse' || entity.type === 'rat')) {
               entity.reachedBottom = true;
               entity.dy = 0;
               entity.dx = 0;
-              
-              // Find nearest available building
               const nearestBuilding = findNearestBuilding(entity.x);
-              
               if (nearestBuilding) {
                 entity.targetBuilding = nearestBuilding;
               } else {
-                // No buildings left, remove entity
                 gameContainer.removeChild(entity.element);
                 entities.splice(i, 1);
                 continue;
               }
-              
-              // Update escaped count
               escapedCount++;
-              
-              // Check if game over
               if (escapedCount >= 5) {
                 gameOver();
               }
-              
               updateHUD();
             }
           }
-          
-          // Update DOM element position
           entity.element.style.left = `${entity.x}px`;
           entity.element.style.top = `${entity.y}px`;
-          
-          // Remove entities that go too far below
           if (entity.y > gameContainer.offsetHeight + 50 && !entity.reachedBottom) {
             gameContainer.removeChild(entity.element);
             entities.splice(i, 1);
@@ -722,93 +708,86 @@
         }
       }
       
+      // Crunch sound when building is eaten
+      function playCrunchSound() {
+        resumeAudioCtx();
+        const crunchDuration = 0.1;
+        for (let i = 0; i < 3; i++) {
+          const delay = i * 0.12;
+          setTimeout(() => {
+            const bufferSize = audioCtx.sampleRate * crunchDuration;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let j = 0; j < bufferSize; j++) {
+              output[j] = Math.random() * 2 - 1;
+            }
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buffer;
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            noise.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            noise.start();
+          }, delay * 1000);
+        }
+      }
+      
       // Handle click/tap
       function handleClick(event) {
         if (!gameActive) return;
-        
         const rect = gameContainer.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
-        
         swipeAt(x, y);
       }
       
       function handleTouch(event) {
         if (!gameActive) return;
         event.preventDefault();
-        
         const rect = gameContainer.getBoundingClientRect();
         const touch = event.touches[0];
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        
         swipeAt(x, y);
       }
       
-      // Updated Swipe animation and hit detection
+      // Swipe function with sound effect
       function swipeAt(x, y) {
-        // Position paw at the click point
-        paw.style.left = `${x - 40}px`; // Center paw on click position
-        paw.style.top = `${y}px`; // Position top of paw at click point
+        paw.style.left = `${x - 40}px`;
+        paw.style.top = `${y}px`;
         paw.style.display = 'block';
-        
-        // Reset animation
         paw.style.animation = 'none';
-        
-        // Force reflow
         void paw.offsetWidth;
-        
-        // Apply swipe animation
         paw.style.animation = 'swipe 0.4s forwards';
-        
-        // Hide paw after animation completes
         setTimeout(() => {
           paw.style.display = 'none';
         }, 400);
-        
-        // Check for hits (use a hit radius)
+        playStrikeSound();
         const hitRadius = 40;
-        
         for (let i = entities.length - 1; i >= 0; i--) {
           const entity = entities[i];
-          
-          // Skip lasers and entities that have reached bottom
           if (entity.type === 'laser' || entity.reachedBottom) continue;
-          
-          const distance = Math.sqrt(
-            Math.pow(x - entity.x, 2) + Math.pow(y - entity.y, 2)
-          );
-          
+          const distance = Math.sqrt(Math.pow(x - entity.x, 2) + Math.pow(y - entity.y, 2));
           if (distance <= hitRadius) {
-            // Create death animation
             const deathMark = document.createElement('div');
             deathMark.className = 'entity death';
             deathMark.textContent = '☠️';
             deathMark.style.left = `${entity.x}px`;
             deathMark.style.top = `${entity.y}px`;
             gameContainer.appendChild(deathMark);
-            
-            // Remove after animation
             setTimeout(() => {
               if (gameContainer.contains(deathMark)) {
                 gameContainer.removeChild(deathMark);
               }
             }, 2000);
-            
-            // Remove entity
             gameContainer.removeChild(entity.element);
             entities.splice(i, 1);
-            
-            // Update destroyed count
             destroyedCount++;
-            
-            // Check if level complete
             if (destroyedCount >= 10) {
               levelComplete();
             }
-            
             updateHUD();
-            break; // Only hit one entity
+            break;
           }
         }
       }
@@ -820,8 +799,9 @@
         gameOverScreen.style.display = 'flex';
       }
       
-      // Level complete
+      // Level complete: play celebratory trumpet
       function levelComplete() {
+        playCelebratoryTrumpet();
         gameActive = false;
         cancelAnimationFrame(animationId);
         levelUpScreen.style.display = 'flex';
@@ -830,14 +810,12 @@
       // Game loop
       function gameLoop() {
         if (!gameActive) return;
-        
         spawnEntity();
         moveEntities();
-        
         animationId = requestAnimationFrame(gameLoop);
       }
       
-      // Clean up when the game ends
+      // Cleanup
       function cleanup() {
         cancelAnimationFrame(animationId);
         entities.forEach(entity => {
@@ -848,7 +826,6 @@
         entities = [];
       }
       
-      // Initialize the game
       init();
     });
   </script>

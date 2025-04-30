@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Emoji Match Puzzle – Complete Edition</title>
+
+  <style>
+    :root {
+      --cell-size: 46px;   /* touch-friendly size          */
+      --cols: 8;           /* board width (in cells)       */
+      --rows: 12;          /* board height (in cells) ⬅️   */
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0; padding:0;
+      user-select:none;
+      -webkit-user-select:none;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    body{
+      display:flex; justify-content:center; align-items:center;
+      height:100vh; background:#111; font-family:system-ui,sans-serif;
+      color:#fff; overflow:hidden;
+    }
+
+    #board{
+      position:relative;
+      width:calc(var(--cell-size)*var(--cols));
+      height:calc(var(--cell-size)*var(--rows));
+      border:4px solid #444; background:#222; touch-action:none;
+    }
+
+    .tile{
+      position:absolute; width:var(--cell-size); height:var(--cell-size);
+      display:flex; justify-content:center; align-items:center;
+      font-size:calc(var(--cell-size)*0.8);
+      border-radius:6px;
+      transition:none; /* Remove transition animation */
+    }
+
+    .bonus{
+      font-size:calc(var(--cell-size)*0.6);
+      border:2px dashed #fff6;
+    }
+.bouncy-title {
+  animation: bounce 1.5s infinite ease-in-out;
+  font-size: clamp(32px, 8vw, 60px);
+  font-family: 'Press Start 2P', sans-serif;
+  color: #ffdb58;
+  text-shadow: 2px 2px #000, 0 0 12px #ff9c00;
+  margin-bottom: 16px;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animated-bg {
+  background: linear-gradient(to bottom right, #111, #222);
+  overflow: hidden;
+  position: relative;
+}
+
+.animated-bg::before {
+  content: '😺 😻 🙀 🍕 🧀 🐟 🌮 ✨';
+  position: absolute;
+  font-size: 100px;
+  opacity: 0.05;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  animation: floatEmoji 20s linear infinite;
+  white-space: nowrap;
+}
+
+@keyframes floatEmoji {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-100%, -100%); }
+}
+
+    /* ---------- UI ---------- */
+    #ui{
+      position:absolute; top:8px; left:8px; z-index:5;
+      font-size:15px; line-height:1.35; text-shadow:0 0 4px #000;
+    }
+    #mission{
+      position:absolute; top:8px; width:100%; text-align:center;
+      font-size:18px; line-height:1.35; z-index:5;
+      text-shadow:0 0 4px #000;
+    }
+
+    /* ---------- Overlays ---------- */
+    .overlay{
+      position:fixed; inset:0; display:flex; flex-direction:column;
+      justify-content:center; align-items:center;
+      background:#000c; backdrop-filter:blur(2px);
+      z-index:10; text-align:center;
+    }
+    .overlay h1{margin:0 0 12px; font-size:clamp(28px,6vw,40px);}
+    .overlay p{margin:0 12px 18px; font-size:clamp(15px,4vw,18px);}
+    .overlay button{
+      padding:10px 22px; border:none; border-radius:8px;
+      background:#ff9c9c; font-size:18px; font-weight:bold;
+      color:#111; cursor:pointer;
+    }
+
+    /* difficulty selector */
+    #difficulty{display:flex; gap:14px; margin-bottom:18px;}
+    #difficulty label{display:flex; align-items:center; gap:6px;
+                      font-size:18px; cursor:pointer;}
+    #difficulty input{
+      appearance:none; width:18px;height:18px;
+      border:2px solid #999; border-radius:50%; position:relative;
+    }
+    #difficulty input:checked{background:#ff9c9c; border-color:#ff9c9c;}
+
+    /* starburst */
+    .burst{
+      position:absolute; width:var(--cell-size); height:var(--cell-size);
+      left:0; top:0; display:flex; justify-content:center; align-items:center;
+      font-size:22px; pointer-events:none;
+      animation:pop .4s ease-out forwards; transform-origin:center;
+    }
+    @keyframes pop{
+      0%{transform:scale(.2) rotate(0deg);   opacity:1;}
+      70%{transform:scale(1.3) rotate(180deg);opacity:1;}
+      100%{transform:scale(0) rotate(360deg); opacity:0;}
+    }
+
+    /* status messages */
+    #statusMessage{
+      position:fixed; top:65%; left:50%; transform:translate(-50%,-50%);
+      font-size:48px; font-weight:bold; color:#ffdb58;
+      text-shadow:0 0 10px #ff9c00,0 0 20px #ff9c00;
+      pointer-events:none; opacity:0; z-index:30;
+    }
+    .message-anim{animation:messageShow 1.2s ease-out forwards;}
+    @keyframes messageShow{
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
+      20%{opacity:1; transform:translate(-50%,-50%) scale(1.2);}
+      80%{opacity:1; transform:translate(-50%,-50%) scale(1.2);}
+      100%{opacity:0; transform:translate(-50%,-50%) scale(1.5);}
+    }
+
+    /* mission complete */
+    #missionComplete{
+      position:fixed; inset:0; display:flex; justify-content:center;
+      align-items:center; pointer-events:none; z-index:20; opacity:0;
+      margin-top:-120px;
+    }
+    #missionComplete h2{
+      font-size:48px; color:#ffdb58; text-shadow:0 0 10px #ff9c00;
+      animation:pulse 1s ease-in-out infinite alternate;
+    }
+    @keyframes pulse{
+      from{transform:scale(1);  text-shadow:0 0 10px #ff9c00;}
+      to  {transform:scale(1.1);text-shadow:0 0 20px #ff9c00,0 0 30px #ff9c00;}
+    }
+    .reveal{animation:reveal 2s forwards;}
+    @keyframes reveal{
+      0%{opacity:0;} 20%{opacity:1;} 80%{opacity:1;} 100%{opacity:0;}
+    }
+
+    /* debug */
+    #debug{
+      position:absolute; bottom:8px; right:8px;
+      font-size:12px; color:#666;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="board"></div>
+  <div id="ui">Score: <span id="score">0</span></div>
+  <div id="mission"></div>
+  <div id="statusMessage"></div>
+
+  <div id="missionComplete"><h2>Snack Time Complete!</h2></div>
+
+<div id="startScreen" class="overlay animated-bg">
+  <div id="carousel">
+    <!-- Slide 1 -->
+    <div class="slide active">
+      <h1 class="bouncy-title">Snack Match</h1>
+      <p>Drag falling emoji tiles to match <strong>4 of the same cat faces</strong>.</p>
+      <p>They can match in <strong>any shape</strong>: line, square, blob… get creative!</p>
+      <div style="font-size: 2rem;">😺 😻 🙀 😿 😸</div>
+      <button onclick="nextSlide()">Next</button>
+    </div>
+
+    <!-- Slide 2 -->
+    <div class="slide">
+      <h1>Snacks on the Board</h1>
+      <p>Snack tiles include: 🍕 🧀 🐟 🍤 🌮</p>
+      <p>Clear the target snack to complete the level. Watch out for 🧱!</p>
+      <div style="font-size: 2rem;">🍕 🧀 🐟 🍤 🌮</div>
+      <button onclick="nextSlide()">Next</button>
+    </div>
+
+    <!-- Slide 3 -->
+    <div class="slide">
+      <h1>Tips for Hungry Cats</h1>
+      <p><strong>Double tap</strong> a tile to drop it <strong>3× faster!</strong></p>
+      <p>Use 💣 to blast tiles. Match next to snacks to scarf them up! ✨</p>
+      <div style="font-size: 2rem;">💣 🧱 ✨</div>
+      <div id="difficulty" style="margin-top: 16px;">
+        <label><input type="radio" name="diff" value="easy"> Easy</label>
+        <label><input type="radio" name="diff" value="medium" checked> Medium</label>
+        <label><input type="radio" name="diff" value="hard"> Hard</label>
+      </div>
+      <button id="startBtn">Start Game</button>
+    </div>
+  </div>
+</div>
+
+
+  <div id="debug"></div>
+
+<script>
+(() => {
+  /* ---------- Constants ---------- */
+  const COLS = +getComputedStyle(document.documentElement)
+                 .getPropertyValue('--cols');
+  const ROWS = +getComputedStyle(document.documentElement)
+                 .getPropertyValue('--rows');
+  const CELL = parseFloat(getComputedStyle(document.documentElement)
+                 .getPropertyValue('--cell-size')) || 46;
+
+  const BASE_SPAWN  = 2000;  // ms between spawns (medium)
+  const BASE_FALL   =  350;  // ms per gravity tick (medium)
+  const COLLAPSE_DELAY = 500;
+  const BOMB_ODDS   = 0.03333;   // 1/30
+  const MATCH_BOOST = 1.5;       // 50 % boost
+  const MIN_MATCH   = 4;         // 4 tiles to clear
+  const DOUBLE_SPEED_MULTIPLIER = 3.0; /* ⬅️ 3× faster */
+  const DOUBLE_CLICK_THRESHOLD  = 300; // ms
+  const MAX_SAME_SPAWN = 2;      // Prevent > 2 of same tile in a row (was 3)
+
+  // Max brick count based on difficulty
+  const MAX_BRICKS = {
+    easy: 2,
+    medium: 3,
+    hard: 5
+  };
+
+  const DIFF_SPEED = { easy:1.3, medium:1, hard:0.7 };
+
+  /* palettes & types */
+  const FOOD_TYPES = ['🐟','🍕','🌮','🍤','🧀'];
+
+  const CORE = [
+    {e:'😿', c:'#add8ff'},
+    {e:'😺', c:'#ffd280'},
+    {e:'😻', c:'#ff9c9c'},
+    {e:'🙀', c:'#c7a6ff'},
+    {e:'😸', c:'#84ffad'}
+  ];
+  const SPECIAL = [
+    {e:'💣', c:'#333'},
+    {e:'🧱', c:'#993300'}
+  ];
+
+  const BOMB_TYPE  = 5;
+  const BRICK_TYPE = 6;
+
+  /* scoring */
+  const BOMB_SCORE      = 500;
+  const BASE_SCORE      = 50;
+  const BONUS_MULTIPLIER= 10;
+
+  /* ---------- Sound effects ---------- */
+  const SOUNDS = {
+    bomb     : 'sounds/bomb.mp3',
+    match    : 'sounds/match.mp3',
+    landing  : 'sounds/landing.mp3',
+    mission  : 'sounds/mission.mp3',
+    message  : 'sounds/message.mp3',
+    gameStart: 'sounds/start.mp3',
+    gameOver : 'sounds/gameover.mp3'
+  };
+  function playSound(name){
+    try{
+      new Audio(SOUNDS[name]).play();
+    }catch(e){ console.log('Sound play failed:', e); }
+  }
+
+  /* ---------- DOM refs ---------- */
+  const $              = s => document.querySelector(s);
+  const boardEl        = $('#board');
+  const scoreEl        = $('#score');
+  const missionEl      = $('#mission');
+  const statusMsgEl    = $('#statusMessage');
+  const startScreen    = $('#startScreen');
+  const missionComplete= $('#missionComplete');
+  const debugEl        = $('#debug');
+
+  /* ---------- Game state ---------- */
+  let grid, falling, score, mission;
+  let missionTarget, missionCount, missionProgress;
+  let fallingTilesOnBoard = 0;
+  let fallInterval, spawnInterval, diffKey;
+  let lastSpawn = 0, lastFall = 0;
+  let running = false, cascadeActive = false;
+  let lastFallenType = null;
+  let missionSequence = [];
+  let cascadeCount = 0;
+  let sameTypeSpawnCount = 0;    // Track consecutive same type spawns
+  let lastSpawnedType = null;    // Track last spawned type
+  let hadCascadeAfterFall = false; // Track if we have a cascade after fall
+  let recentTypes = [];         // Track recent spawned types for better randomness
+
+  $('#startBtn').addEventListener('click', startGame);
+  
+  // Remove transition animation from CSS and use direct positioning
+  const pos = (c,r) => `translate(${c*CELL}px,${r*CELL}px)`;
+
+  /* ---------- Helpers ---------- */
+  function showStatus(msg){
+    statusMsgEl.textContent = msg;
+    statusMsgEl.classList.remove('message-anim');
+    void statusMsgEl.offsetWidth;
+    statusMsgEl.classList.add('message-anim');
+    playSound('message');
+    setTimeout(()=>statusMsgEl.classList.remove('message-anim'),1200);
+  }
+
+  /* ---------- Game init ---------- */
+  function startGame(){
+    diffKey = $('input[name="diff"]:checked').value;
+    fallInterval  = Math.round(BASE_FALL  * DIFF_SPEED[diffKey]);
+    spawnInterval = BASE_SPAWN;
+
+    if(!score){ score = 0; scoreEl.textContent = score; }
+    initGrid();
+    startSnackTime(1);
+
+    playSound('gameStart');
+    startScreen.style.display='none';
+    running = true;
+    requestAnimationFrame(loop);
+  }
+
+  function initGrid(){
+    boardEl.innerHTML='';
+    grid = Array.from({length:ROWS}, () => Array(COLS).fill(null));
+    falling = [];
+    fallingTilesOnBoard = 0;
+    lastSpawn = lastFall = performance.now();
+    cascadeActive = false;
+    lastFallenType = null;
+    cascadeCount = 0;
+    hadCascadeAfterFall = false;
+    sameTypeSpawnCount = 0;
+    lastSpawnedType = null;
+    recentTypes = [];
+  }
+
+  /* ---------- Missions / Snack Times ---------- */
+  function startSnackTime(num){
+    mission = num;
+
+    const baseCount = 3 + Math.floor((mission-1)/5);
+
+    if(missionSequence.length === 0) missionSequence = shuffle([...Array(5).keys()]);
+    const seqIdx = (mission-1) % 5;
+    missionTarget = missionSequence[seqIdx];
+    missionCount  = baseCount;
+    missionProgress = 0;
+
+    placeMissionTiles();
+    updateMissionText();
+  }
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  function updateMissionText(){
+    missionEl.textContent = `Eliminate ${missionCount} ${FOOD_TYPES[missionTarget]}`;
+    debugEl.textContent   = `Required:${missionCount} `+
+                             `Placed:${countPlacedTargets()} `+
+                             `Progress:${missionProgress}`;
+  }
+
+  function countPlacedTargets(){
+    let n = 0;
+    grid.forEach(row=>row.forEach(t=>{
+      if(t && t.bonus && t.type===missionTarget) n++;
+    }));
+    return n;
+  }
+
+  function countAllTiles(){
+    let n = 0;
+    grid.forEach(row=>row.forEach(t=>{ if(t) n++; }));
+    return n + fallingTilesOnBoard;
+  }
+
+  // Count tiles of a specific type on the board
+  function countTileType(type) {
+    let count = 0;
+    grid.forEach(row => row.forEach(t => {
+      if(t && t.type === type) count++;
+    }));
+    return count;
+  }
+
+  function checkMissionComplete(){
+    updateMissionText();
+    if(missionProgress >= missionCount){
+      if(countAllTiles()<=0) showStatus('HUNGRY!');
+      showMissionComplete();
+      setTimeout(()=>{
+        initGrid();
+        startSnackTime(mission+1);
+      },2000);
+      return true;
+    }
+    return false;
+  }
+
+  function showMissionComplete(){
+    playSound('mission');
+    missionComplete.classList.add('reveal');
+    setTimeout(()=>missionComplete.classList.remove('reveal'),2000);
+  }
+
+  /* ---------- Mission tile placement ---------- */
+  function placeMissionTiles(){
+    const half = Math.floor(ROWS/2);
+    let extraTiles = mission;
+
+    /* place mission-target tiles */
+    for(let i=0;i<missionCount;i++){
+      let r,c;
+      do{
+        r = half + Math.floor(Math.random()*(ROWS-half-2));
+        c = Math.floor(Math.random()*COLS);
+      }while(grid[r][c]);
+      createBonusTile(r,c,missionTarget,FOOD_TYPES[missionTarget]);
+    }
+
+    /* Reduced brick count - only add if mission >= 6 */
+    if(mission >= 6){
+      // Calculate max bricks based on difficulty
+      const maxBricks = MAX_BRICKS[diffKey];
+      const brickCount = Math.min(maxBricks, Math.floor(mission / 4)); // Slower brick growth
+      
+      for(let i = 0; i < brickCount; i++){
+        if(extraTiles > 0) extraTiles--;
+        let r, c;
+        do{
+          r = half + Math.floor(Math.random()*(ROWS-half-2));
+          c = Math.floor(Math.random()*COLS);
+        }while(grid[r][c]);
+        createBonusTile(r, c, BRICK_TYPE, SPECIAL[1].e);
+      }
+    }
+
+    /* other random food tiles */
+    const others = [...Array(5).keys()].filter(i=>i!==missionTarget);
+    for(let i=0;i<extraTiles;i++){
+      const type = others[Math.floor(Math.random()*others.length)];
+      let r,c;
+      do{
+        r = half + Math.floor(Math.random()*(ROWS-half-2));
+        c = Math.floor(Math.random()*COLS);
+      }while(grid[r][c]);
+      createBonusTile(r,c,type,FOOD_TYPES[type]);
+    }
+  }
+
+  function createBonusTile(r,c,typeIdx,emoji){
+    const color = typeIdx===BRICK_TYPE ? SPECIAL[1].c :
+                  (typeIdx<CORE.length? CORE[typeIdx].c : '#999');
+    const el = document.createElement('div');
+    el.className='tile bonus';
+    el.textContent = emoji;
+    el.style.backgroundColor=color;
+    el.style.transform = pos(c,r);
+    boardEl.appendChild(el);
+
+    grid[r][c] = {row:r,col:c,type:typeIdx,el,falling:false,bonus:true};
+  }
+
+  /* ---------- Improved Tile spawning ---------- */
+  function spawnTile(){
+    if(!running||cascadeActive) return;
+
+    const col = Math.floor(Math.random()*COLS);
+    if(grid[0][col]) return gameOver();
+
+    /* overcrowded top rows? */
+    if(grid[0].every((t,i)=>t||grid[1][i])) return gameOver();
+
+    /* Enhanced randomized type selection with better distribution */
+    let idx;
+    
+    // Count each tile type on the board
+    const typeCounts = {};
+    for(let i = 0; i < CORE.length; i++) {
+      typeCounts[i] = countTileType(i);
+    }
+    
+    // Find the type with lowest count (most needed)
+    let lowestType = null;
+    let lowestCount = Infinity;
+    for(let i = 0; i < CORE.length; i++) {
+      if(typeCounts[i] < lowestCount) {
+        lowestCount = typeCounts[i];
+        lowestType = i;
+      }
+    }
+    
+    // Increase probability for target tiles when they're rare (15% boost)
+    const boostTarget = lowestType !== null && Math.random() < 0.15;
+    
+    // Determine the type of the new tile
+    if(Math.random() < BOMB_ODDS) {
+      // Bomb probability unchanged
+      idx = BOMB_TYPE;
+    } else if(boostTarget) {
+      // Boost the least common tile type
+      idx = lowestType;
+    } else if(lastFallenType !== null && Math.random() < (MATCH_BOOST - 1)) {
+      // Slightly boosted chance for matches, but prevent too many consecutive same tiles
+      if(lastSpawnedType === lastFallenType && sameTypeSpawnCount >= MAX_SAME_SPAWN) {
+        // Avoid the most recent types for better distribution
+        let availableTypes = [...Array(CORE.length).keys()]
+          .filter(i => !recentTypes.includes(i));
+        
+        // If all types were recently used, just avoid the last one
+        if(availableTypes.length === 0) {
+          availableTypes = [...Array(CORE.length).keys()]
+            .filter(i => i !== lastSpawnedType);
+        }
+        
+        idx = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      } else {
+        idx = lastFallenType;
+      }
+    } else {
+      // Standard random selection but avoid recent types
+      let availableTypes = [...Array(CORE.length).keys()]
+        .filter(i => !recentTypes.includes(i));
+      
+      // If all types were recently used, just use all types
+      if(availableTypes.length === 0) {
+        availableTypes = [...Array(CORE.length).keys()];
+      }
+      
+      idx = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+    }
+    
+    // Update consecutive same type counter
+    if(idx === lastSpawnedType && idx !== BOMB_TYPE) {
+      sameTypeSpawnCount++;
+    } else {
+      sameTypeSpawnCount = 1;
+      lastSpawnedType = idx;
+    }
+    
+    // Track recent types (keep last 3 types)
+    if(idx !== BOMB_TYPE) {
+      recentTypes.unshift(idx);
+      if(recentTypes.length > 3) {
+        recentTypes.pop();
+      }
+      lastFallenType = idx;
+    }
+
+    const info = idx===BOMB_TYPE?SPECIAL[0]:CORE[idx];
+    const el=document.createElement('div');
+    el.className='tile';
+    el.textContent=info.e; el.style.backgroundColor=info.c;
+    el.style.transform=pos(col,-1);
+    boardEl.appendChild(el);
+
+    const tile={
+      row:-1,col,type:idx,el,falling:true,bonus:false,
+      speedMultiplier:1,lastMove:null
+    };
+    falling.push(tile); fallingTilesOnBoard++;
+    enableDrag(tile);
+  }
+
+  /* ---------- Position helpers ---------- */
+  function isValidPosition(r,c){
+    if(c<0||c>=COLS) return false;
+    if(r>=0&&r<ROWS && grid[r][c]) return false;
+    return true;
+  }
+  
+  function updateTilePosition(tile) {
+    // Direct DOM update - set transform property directly
+    tile.el.style.transform = pos(tile.col, tile.row);
+  }
+
+  /* ---------- Drag & double-tap ---------- */
+  function enableDrag(tile){
+    let lastClick = 0;
+    let isDragging = false;
+    let boardRect = null;
+    let startX = 0;
+    let moveThreshold = 5; // pixels to move before considering it a drag
+    let hasMovedThreshold = false;
+    
+    // Double-tap for speed boost
+    tile.el.addEventListener('click', e => {
+      if (isDragging) return; // Ignore clicks during drag
+      
+      const now = performance.now();
+      if (now - lastClick < DOUBLE_CLICK_THRESHOLD && tile.falling) {
+        tile.speedMultiplier = DOUBLE_SPEED_MULTIPLIER;
+        tile.el.style.boxShadow = '0 0 10px #fff';
+      }
+      lastClick = now;
+      e.preventDefault();
+    });
+    
+    // Start drag
+    tile.el.addEventListener('pointerdown', e => {
+      if (!tile.falling) return;
+      
+      isDragging = true;
+      boardRect = boardEl.getBoundingClientRect();
+      startX = e.clientX;
+      hasMovedThreshold = false;
+      
+      // Capture pointer to track movement outside element
+      tile.el.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    
+    // Handle drag movement
+    tile.el.addEventListener('pointermove', e => {
+      if (!isDragging || !tile.falling) return;
+      
+      // Calculate distance moved to determine if it's a drag
+      const deltaX = e.clientX - startX;
+      
+      // Only process after threshold met
+      if (!hasMovedThreshold && Math.abs(deltaX) < moveThreshold) return;
+      hasMovedThreshold = true;
+      
+      // Calculate target column
+      if (!boardRect) boardRect = boardEl.getBoundingClientRect();
+      const pointerX = e.clientX - boardRect.left;
+      let newCol = Math.floor(pointerX / CELL);
+      
+      // Clamp to valid range
+      newCol = Math.max(0, Math.min(COLS - 1, newCol));
+      
+      // Don't process if no change
+      if (newCol === tile.col) return;
+      
+      // Calculate direction of movement
+      const moveDir = newCol > tile.col ? 1 : -1;
+      
+      // Attempt to move one step in that direction
+      const nextCol = tile.col + moveDir;
+      
+      // Check if the target position is valid
+      if (isValidPosition(tile.row, nextCol)) {
+        // Update model position
+        tile.col = nextCol;
+        
+        // Update visual position
+        updateTilePosition(tile);
+      }
+      
+      e.preventDefault();
+    });
+    
+    // End drag
+    tile.el.addEventListener('pointerup', e => {
+      if (isDragging) {
+        isDragging = false;
+        boardRect = null;
+        tile.el.releasePointerCapture(e.pointerId);
+      }
+    });
+    
+    // Handle lost pointer
+    tile.el.addEventListener('pointerleave', e => {
+      if (isDragging && !tile.el.hasPointerCapture(e.pointerId)) {
+        isDragging = false;
+        boardRect = null;
+      }
+    });
+    
+    // Handle cancellation
+    tile.el.addEventListener('pointercancel', e => {
+      if (isDragging) {
+        isDragging = false;
+        boardRect = null;
+        tile.el.releasePointerCapture(e.pointerId);
+      }
+    });
+  }
+
+  /* ---------- Gravity step (per-tile speed) ---------- */
+  function gravityStep(){
+    // Create a copy of the falling array to avoid issues during iteration
+    const fallingCopy = [...falling];
+    
+    for(const tile of fallingCopy) {
+      if(!tile.falling) continue;
+      
+      if(!tile.lastMove || performance.now() - tile.lastMove >= fallInterval / tile.speedMultiplier) {
+        tile.lastMove = performance.now();
+        
+        // Calculate next position
+        const nextRow = tile.row + 1;
+        
+        // Check for collisions
+        const hitBottom = nextRow >= ROWS;
+        const hitTile = nextRow >= 0 && nextRow < ROWS && grid[nextRow][tile.col];
+        
+        if(hitBottom || hitTile) {
+          // Stop the tile from falling
+          tile.falling = false;
+          fallingTilesOnBoard--;
+          tile.el.style.boxShadow = 'none';
+          playSound('landing');
+          
+          // Make sure the tile is on the grid
+          if(tile.row < 0) tile.row = 0;
+          
+          // Place tile on the grid if its position is empty
+          if(!grid[tile.row][tile.col]) {
+            grid[tile.row][tile.col] = tile;
+            updateTilePosition(tile);
+            
+            // Check for bomb or matches
+            if(tile.type === BOMB_TYPE) {
+              handleBomb(tile.row, tile.col);
+            } else {
+              detectMatch(tile.row, tile.col);
+            }
+          } else {
+            // Find nearest empty cell
+            const emptySpot = findNearestEmptyCell(tile);
+            if(emptySpot) {
+              const [r, c] = emptySpot;
+              tile.row = r;
+              tile.col = c;
+              grid[r][c] = tile;
+              updateTilePosition(tile);
+              
+              if(tile.type === BOMB_TYPE) {
+                handleBomb(r, c);
+              } else {
+                detectMatch(r, c);
+              }
+            } else {
+              // No empty spots, remove the tile
+              tile.el.remove();
+            }
+          }
+        } else {
+          // Move the tile down
+          tile.row = nextRow;
+          updateTilePosition(tile);
+        }
+      }
+    }
+    
+    // Update the falling array to only include tiles that are still falling
+    falling = falling.filter(t => t.falling);
+  }
+
+  /* ---------- Bomb explosion ---------- */
+  function handleBomb(row,col){
+    cascadeActive = true;
+    playSound('bomb');
+    
+    const area = [];
+    for(let r = row - 1; r <= row + 1; r++) {
+      for(let c = col - 1; c <= col + 1; c++) {
+        if(r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+          area.push([r, c]);
+        }
+      }
+    }
+
+    score += BOMB_SCORE;
+    scoreEl.textContent = score;
+
+    let foodCleared = 0;
+    area.forEach(([r, c]) => {
+      const t = grid[r][c];
+      if(t){
+        if(t.bonus && t.type === missionTarget) {
+          missionProgress++;
+        }
+        if(t.bonus && t.type < FOOD_TYPES.length) {
+          foodCleared++;
+        }
+        burst(r, c, '🎇');
+        t.el.remove();
+        grid[r][c] = null;
+      }
+    });
+
+    if(foodCleared>=2) showStatus('SCARF!');
+    if(checkMissionComplete()) return;
+    
+    setTimeout(() => {
+      collapse();
+    }, COLLAPSE_DELAY);
+  }
+
+  function burst(r, c, char = '✨'){
+    const b = document.createElement('div');
+    b.className = 'burst';
+    b.textContent = char;
+    b.style.left = (c * CELL) + 'px';
+    b.style.top = (r * CELL) + 'px';
+    boardEl.appendChild(b);
+    
+    setTimeout(() => b.remove(), 400);
+  }
+
+  /* ---------- Match detection ---------- */
+  function detectMatch(r, c){
+    const base = grid[r][c];
+    if(!base || base.type === BRICK_TYPE) return;
+    
+    const type = base.type;
+    const stack = [[r, c]];
+    const seen = new Set([r + ',' + c]);
+    const group = [[r, c]];
+
+    while(stack.length) {
+      const [rr, cc] = stack.pop();
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
+        const nr = rr + dr;
+        const nc = cc + dc;
+        const key = nr + ',' + nc;
+        
+        if(nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || seen.has(key)) return;
+        
+        const nt = grid[nr][nc];
+        if(nt && nt.type === type) {
+          group.push([nr, nc]);
+          stack.push([nr, nc]);
+          seen.add(key);
+        }
+      });
+    }
+
+    if(group.length < MIN_MATCH) return;
+    
+    cascadeActive = true;
+    cascadeCount++;
+    playSound('match');
+
+    let bonusCount = 0;
+    let foodCount = 0;
+    group.forEach(([rr, cc]) => {
+      const t = grid[rr][cc];
+      if(t.bonus) {
+        bonusCount++;
+        if(t.type === missionTarget) missionProgress++;
+      }
+      if(t.bonus && t.type < FOOD_TYPES.length) foodCount++;
+    });
+    
+    updateMissionText();
+    if(foodCount >= 2) showStatus('SCARF!');
+
+    const groupScore = BASE_SCORE * Math.pow(2, group.length - MIN_MATCH) *
+                       (bonusCount ? BONUS_MULTIPLIER * bonusCount : 1);
+    score += groupScore;
+    scoreEl.textContent = score;
+
+    group.forEach(([rr, cc]) => {
+      burst(rr, cc);
+      const t = grid[rr][cc];
+      t.el.style.opacity = '.7';
+      setTimeout(() => {
+        t.el.remove();
+        grid[rr][cc] = null;
+      }, 100);
+    });
+
+    if(checkMissionComplete()) return;
+    
+    setTimeout(() => {
+      collapse();
+    }, COLLAPSE_DELAY);
+  }
+
+  /* ---------- Collapse ---------- */
+  function collapse() {
+    let moved = false;
+    
+    // Remember if this is a continuing cascade
+    const wasCascade = cascadeCount > 1;
+    
+    // Process columns from bottom to top
+    for(let c = 0; c < COLS; c++) {
+      for(let r = ROWS - 2; r >= 0; r--) {
+        const tile = grid[r][c];
+        if(tile && !tile.bonus) {
+          // Find the lowest empty position
+          let newRow = r;
+          while(newRow + 1 < ROWS && !grid[newRow + 1][c]) {
+            newRow++;
+          }
+          
+          // Move the tile down if needed
+          if(newRow !== r) {
+            grid[newRow][c] = tile;
+            grid[r][c] = null;
+            tile.row = newRow;
+            updateTilePosition(tile);
+            moved = true;
+          }
+        }
+      }
+    }
+
+    if(moved) {
+      // Tiles moved, check for new matches after a delay
+      hadCascadeAfterFall = true;
+      
+      setTimeout(() => {
+        // Show cascade message if appropriate
+        if(wasCascade && hadCascadeAfterFall) {
+          showStatus('Cat-scade!');
+        }
+        
+        // Reset cascade state to detect new matches
+        cascadeActive = false;
+        
+        let foundNewMatch = false;
+        
+        // Check for new matches
+        for(let r = ROWS - 1; r >= 0; r--) {
+          for(let c = 0; c < COLS; c++) {
+            if(grid[r][c] && grid[r][c].type !== BRICK_TYPE) {
+              // Check state before match detection
+              const wasActive = cascadeActive;
+              
+              // Check for matches
+              detectMatch(r, c);
+              
+              // If state changed, we found a match
+              if(!wasActive && cascadeActive) {
+                foundNewMatch = true;
+                break;
+              }
+            }
+          }
+          if(foundNewMatch) break;
+        }
+        
+        // If no new matches found, end the cascade
+        if(!foundNewMatch) {
+          endCascade();
+        }
+      }, COLLAPSE_DELAY);
+    } else {
+      endCascade();
+    }
+  }
+
+  function endCascade() {
+    cascadeActive = false;
+    lastSpawn = performance.now();
+    cascadeCount = 0;
+    hadCascadeAfterFall = false;
+    
+    // Replenish target tiles if needed
+    if(countPlacedTargets() < missionCount - missionProgress) {
+      replenishTargets();
+    }
+    
+    // Check for 'HUNGRY!' condition
+    if(countAllTiles() === 0 && missionProgress >= missionCount) {
+      showStatus('HUNGRY!');
+    }
+  }
+
+  function replenishTargets() {
+    const need = missionCount - missionProgress - countPlacedTargets();
+    if(need <= 0) return;
+    
+    const half = Math.floor(ROWS / 2);
+    let placed = 0, attempts = 0;
+    
+    while(placed < need && attempts < 50) {
+      const r = half + Math.floor(Math.random() * (ROWS - half - 2));
+      const c = Math.floor(Math.random() * COLS);
+      
+      if(!grid[r][c]) {
+        createBonusTile(r, c, missionTarget, FOOD_TYPES[missionTarget]);
+        placed++;
+      }
+      attempts++;
+    }
+    
+    updateMissionText();
+  }
+
+  /* ---------- Utility ---------- */
+  function findNearestEmptyCell(tile) {
+    for(let radius = 1; radius < 5; radius++) {
+      for(let dr = -radius; dr <= radius; dr++) {
+        for(let dc = -radius; dc <= radius; dc++) {
+          // Only check cells at the current radius
+          if(Math.abs(dr) !== radius && Math.abs(dc) !== radius) continue;
+          
+          const nr = tile.row + dr;
+          const nc = tile.col + dc;
+          
+          if(nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !grid[nr][nc]) {
+            return [nr, nc];
+          }
+        }
+      }
+    }
+    
+    return null;
+  }
+
+  /* ---------- Game loop ---------- */
+  function loop(ts) {
+    if(!running) return;
+    
+    if(ts - lastFall >= fallInterval) {
+      lastFall = ts;
+      gravityStep();
+    }
+    
+    if(!cascadeActive && falling.length === 0 && ts - lastSpawn >= spawnInterval) {
+      lastSpawn = ts;
+      spawnTile();
+    }
+    
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- Game over ---------- */
+  function gameOver() {
+    running = false;
+    playSound('gameOver');
+    
+    startScreen.querySelector('h1').textContent = 'Game Over';
+    startScreen.querySelector('p').textContent =
+      `You reached Snack Time ${mission} with a score of ${score}!`;
+    $('#startBtn').textContent = 'Play Again';
+    startScreen.style.display = 'flex';
+  }
+})();
+</script>
+</body>
+</html>
